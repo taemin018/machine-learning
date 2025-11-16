@@ -49,12 +49,135 @@
     - y_test: 실제 정답
     - predict(X_test): 예측한 정답
     
+결정 트리(Decision Tree)
+
+<img width="778" height="267" alt="스크린샷 2025-11-16 오후 9 08 00" src="https://github.com/user-attachments/assets/3d855bda-dbf5-4059-8de7-f293a1277738" />
+
+    - 매우 쉽고 유연하게 적용될 수 있는 알고리즘으로서 데이터의 스케일링, 정규화 등의 데이터 전처리의 의존도가 매우 적다.
+    - 학습을 통해 데이터에 있는 규칙을 자동으로 찾아내서 Tree기반의 분류 규칙을 만든다.
+    - 각 특성이 개별적으로 처리되어 데이터를 분할하는데 데이터 스케일의 영향을 받지 않으므로 결정트리에서는 정규화나 표준화같은 전처리 과정이 필요없다.
+    - 영향을 가장 많이 미치는 feature를 찾아낼 수도 있다.
+    - 예측 성능을 계속해서 향상시키면 복잡한 규칙 구조를 가지기 때문에 ※과적합(Overfitting)이 발생해서 예측 성능이 저하될 수도 있다.
+    - 가장 상위 노드를 "루트 노드"라고 하며, 나머지 분기점을 "서브 노드", 결정된 분류값 노드를 "리프 노드"라고 한다.
+    - 복잡도를 감소시키는 것이 주목적이며, 정보의 복잡도를 불순도(Impurity)라고 한다.
+    - 이를 수치화한 값으로 지니 계수(Gini coeficient)가 있다.
+    - 클래스가 섞이지 않고 분류가 잘 되었다면, 불순도 낮다.
+    - 클래스가 많이 섞여 있고 분류가 잘 안되었다면, 불순도 높다.
+    - 통계적 분산 정도를 정량화하여 표현한 값이고, 0과 1사이의 값을 가진다.
+    - 지니 계수가 낮을 수록 분류가 잘 된 것이다.
+
+과적합
+    
+    - 학습 데이터를 과하게 학습시켜서 실제 데이터에서는 오차가 오히려 증가하는 현상이다.
+
+<img width="363" height="234" alt="스크린샷 2025-11-16 오후 9 10 07" src="https://github.com/user-attachments/assets/60714c89-3c40-41fe-aeda-cc3ebddf97dc" />
+
+Graphviz
+
+    - 결정트리 모델을 시각화할 수 있다.
+    - pip install graphviz
+
+## 📝 실습 (Lung Cancer - Dataset)
+
+- 정규화
+
+        from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+        
+        gender_encoder = LabelEncoder()
+        genders = gender_encoder.fit_transform(c_df.GENDER.tolist())
+        c_df['GENDER'] = genders
+        
+        lung_cancer_encoder = LabelEncoder()
+        targets = lung_cancer_encoder.fit_transform(c_df.LUNG_CANCER.tolist())
+        c_df['LUNG_CANCER'] = targets
 
 
+inverse_transform 
+
+    - 정규화나 변환을 했던 걸 다시 원래 값으로 되돌리는 함수
+
+연산 결과를 파일로 내보내기 
+
+    from sklearn.tree import DecisionTreeClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.tree import export_graphviz
+    import graphviz
+    
+    dtc_cancer = DecisionTreeClassifier()
+    
+    features, target = c_df.iloc[:, :-1], c_df.iloc[:, -1]
+    
+    X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state = 124)
+    
+    dtc_cancer.fit(X_train, y_train)
+    
+    export_graphviz(
+        dtc_cancer,
+        out_file='./images/cancer_dtc01.dot',
+        class_names= lung_cancer_encoder.classes_,
+        feature_names= features.columns,
+        impurity=True,
+        filled=True
+        
+    )
+
+    with open('./images/cancer_dtc01.dot') as f:
+        cancer_dtc01 = f.read()
+        
+    cancer_dtc01_graph = graphviz.Source(cancer_dtc01)
+    cancer_dtc01_graph.render(filename='cancer_dtc01', directory='./images/', format='png')
 
 
+<img width="1710" height="756" alt="스크린샷 2025-11-16 오후 9 23 48" src="https://github.com/user-attachments/assets/383fa2bc-25ee-48fb-88a1-a1b68ffa7e4a" />
+
+데이터 시각화 
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    
+    sns.barplot(x=dtc_cancer.feature_importances_, y= features.columns)
+    plt.show()
+
+<img width="872" height="412" alt="스크린샷 2025-11-16 오후 9 24 37" src="https://github.com/user-attachments/assets/db8604f6-916e-45b6-8deb-38217c91f579" />
 
 
+Classifier의 Decision Boundary를 시각화 하는 함수
+    
+    import numpy as np
+    
+    def visualize_boundary(model, X, y):
+        fig,ax = plt.subplots()
+        
+        # 학습 데이타 scatter plot으로 나타내기
+        ax.scatter(X.iloc[:, 0], X.iloc[:, 1], c=y, s=25, cmap='rainbow', edgecolor='k',
+                   clim=(y.min(), y.max()), zorder=3)
+        ax.axis('tight')
+        ax.axis('off')
+        xlim_start , xlim_end = ax.get_xlim()
+        ylim_start , ylim_end = ax.get_ylim()
+        
+        # 호출 파라미터로 들어온 training 데이타로 model 학습 . 
+        model.fit(X.values, y)
+        # meshgrid 형태인 모든 좌표값으로 예측 수행. 
+        xx, yy = np.meshgrid(np.linspace(xlim_start,xlim_end, num=200),np.linspace(ylim_start,ylim_end, num=200))
+        Z = model.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+        
+        # contourf() 를 이용하여 class boundary 를 visualization 수행. 
+        n_classes = len(np.unique(y))
+        contours = ax.contourf(xx, yy, Z, alpha=0.3,
+                               levels=np.arange(n_classes + 1) - 0.5,
+                               cmap='rainbow',
+                               zorder=1)
+
+<img width="529" height="377" alt="스크린샷 2025-11-16 오후 9 25 59" src="https://github.com/user-attachments/assets/461f089a-5c5a-42d9-bdc4-10515375dc03" />
+
+평가 점수 
+
+    from sklearn.metrics import accuracy_score
+    
+    accuracy_score(y_test, dtc_cancer.predict(X_test[['SWALLOWING DIFFICULTY', 'AGE']].values))
+        
+    0.8870967741935484
 
 
 
